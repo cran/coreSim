@@ -1,0 +1,13 @@
+0ecdc32a5dc6a6d7a9d812f7e917e718 *DESCRIPTION
+1091e664d7b1b261d62e13498966916a *NAMESPACE
+4e1776d59ec720020b0ca2130823727c *NEWS
+9a673e18528e57aa416e0d47ac2bc2a4 *R/b_sim.R
+0eb41587fff31cfba0866de80b37882c *R/linear_systematic.R
+7edd0e270b4e92e8f1b4c49a1d0f6cae *R/qi_builder.R
+36b6615c983cc8bbeeb89cc81ae3a8e7 *R/utils.R
+1583fa4c2c6b94d6a2b0f3556807abf1 *man/b_sim.Rd
+165a779ab07cc83f81781aa3f6d2ba38 *man/linear_systematic.Rd
+8a364b9107e6599ba4c2a993e4119b7e *man/qi_builder.Rd
+fdfb9c68cc51ec3831fc7b568d24740e *man/qi_slimmer.Rd
+f8202c5ab121d1dcb5d88a0e152f0af6 *tests/testthat.R
+5c67076f118565719d1b01b0bdd81ba1 *tests/testthat/test.R
