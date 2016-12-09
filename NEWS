@@ -1,3 +1,21 @@
+# Version 0.2.3
+
+- Internal cleanup of function tests.
+
+# Version 0.2.2
+
+- Allow users to supply mu and Sigma values to `b_sim`.
+
+- Documentation and internal code improvements.
+
+# Version 0.2.1
+
+- Can find polynomial splines using b-splines basis. Note: apart from the
+degree of the piecewise polynomial, the default behaviour for `bs` is
+assumed.
+
+- Internal code improvements.
+
 # Version 0.2
 
 - `b_sim` has been incorporated into qi_builder so that the simulated

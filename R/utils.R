@@ -3,6 +3,10 @@
 #'
 #' @param df a data frame of simulated quantities of interest created by
 #' \code{\link{qi_builder}}.
+#' @param scenario_var character string of the variable name marking the
+#' scenarios.
+#' @param qi_var character string of the name of the variable with the
+#' simulated quantity of interest values.
 #'
 #' @return A data frame with the fitted values and the minimum (\code{qi_min}),
 #' median (\code{qi_median}), and maximum (\code{qi_max}) values from the
@@ -38,8 +42,11 @@
 #'
 #' @export
 
-qi_slimmer <- function(df){
+qi_slimmer <- function(df, scenario_var = 'scenario_', qi_var = 'qi_'){
     qi_ <- scenario_ <- NULL
+
+    names(df)[names(df) == qi_var] <- 'qi_'
+    names(df)[names(df) == scenario_var] <- 'scenario_'
 
     if (!(names(df)[[ncol(df)]] == 'scenario_'))
         df$scenario_ <- interaction(df[, 1:(ncol(df)-1)], drop = TRUE)
@@ -48,13 +55,15 @@ qi_slimmer <- function(df){
         summarise(qi_min = min(qi_),
                   qi_median = median(qi_),
                   qi_max = max(qi_)
-                  ) %>%
+        ) %>%
         data.frame
 
     scenarios_df <- df[!duplicated(df$scenario_), 1:(ncol(df)-2)] %>%
         data.frame(row.names = NULL)
     df_out <- cbind(scenarios_df, df_out)
     df_out$scenario_ <- NULL
+
+    names(df_out)[names(df_out) == 'qi_'] <- qi_var
     return(df_out)
 }
 
@@ -209,6 +218,7 @@ find_scenarios <- function(obj, nsim, large_computation = FALSE) {
 }
 
 #' Convert factor levels into binary categorical values
+#' @importFrom splines bs
 #' @noRd
 
 factorise <- function(x, b_sims) {
@@ -236,13 +246,14 @@ factorise <- function(x, b_sims) {
 #' @noRd
 
 non_linear_transformer <- function(x, b_sims) {
-    sim_names <- names(b_sims)
+    sim_names <- colnames(b_sims)
 
     # Polynomials
     ## Note: assumes poly <= 9
-    if (any(grepl('^I\\..*\\.[1-9]\\.$', sim_names))) {
-        sub_names <- sim_names[grepl('^I\\..*\\.[1-9].*$', sim_names)]
-        sub_names <- sub_names[!(sub_names %in% names(x))]
+    poly_pattern <- '^I\\..*\\.[1-9]\\.$'
+    if (any(grepl(poly_pattern, sim_names))) {
+        sub_names <- extract_names(x = x, sim_names = sim_names,
+                                   pattern = poly_pattern)
         for (i in sub_names) {
             var_i <- gsub('^I\\.', '', i)
             var_i <- gsub('\\.[1-9]\\.$', '', var_i)
@@ -255,9 +266,10 @@ non_linear_transformer <- function(x, b_sims) {
     }
 
     # Natural logarithms
-    if (any(grepl('^log\\..*\\.$', sim_names))) {
-        sub_names <- sim_names[grepl('^log\\..*\\.$', sim_names)]
-        sub_names <- sub_names[!(sub_names %in% names(x))]
+    log_pattern <- '^log\\..*\\.$'
+    if (any(grepl(log_pattern, sim_names))) {
+        sub_names <- extract_names(x = x, sim_names = sim_names,
+                                   pattern = log_pattern)
         for (i in sub_names) {
             var_i <- gsub('^log\\.', '', i)
             var_i <- gsub('\\.$', '', var_i)
@@ -268,5 +280,70 @@ non_linear_transformer <- function(x, b_sims) {
         }
     }
 
+    # B-Spline basis for polynomial splines
+    bs_pattern <- '^bs\\..*\\.[1-9]$'
+    if (any(grepl(bs_pattern, sim_names))) {
+        sub_names <- extract_names(x = x, sim_names = sim_names,
+                                   pattern = bs_pattern)
+        base_names <- gsub('^bs\\.', '', sub_names)
+        base_names <- gsub('\\.[1-9]$', '', base_names)
+        base_names <- gsub('\\.\\.degree\\.\\.\\.[1-9]', '', base_names)
+        base_names <- unique(base_names)
+        for (i in base_names) {
+            i_names <- sub_names[grep(i, sub_names)]
+            d <- as.numeric(substr(sub_names, nchar(sub_names),
+                                         nchar(sub_names)))
+            d <- max(d)
+            temp_bs <- as.data.frame(bs(x[, i], degree = d))
+            names(temp_bs) <- i_names
+            x <- cbind(x, temp_bs)
+        }
+    }
+
     return(x)
+}
+
+#' Extract column names matching pattern
+#' @noRd
+
+extract_names <- function(x, sim_names, pattern) {
+    sub_names <- sim_names[grepl(pattern, sim_names)]
+    sub_names <- sub_names[!(sub_names %in% names(x))]
+    return(sub_names)
+}
+
+#' Constrict a data frame of simulated values to a central interval
+#' @param sims_scenarios a data frame of simulated quantities of interest and
+#' a column grouping them by fitted scenario.
+#' @param scenario_var character string of the variable name marking the
+#' scenarios.
+#' @param qi_var character string of the name of the variable with the
+#' simulated quantity of interest values.
+#' @param ci numeric value indicating the central interval. Must be in (0, 1].
+#'
+#' @importFrom stats quantile
+#' @importFrom dplyr bind_rows
+#' @noRd
+
+qi_central_interval <- function(sims_scenarios, scenario_var = 'scenario_',
+                                qi_var = 'qi_', ci = 0.95)
+{
+    qi_ <- NULL
+
+    lower <- (1 - ci)/2
+    upper <- 1 - lower
+
+    names(sims_scenarios)[names(sims_scenarios) == qi_var] <- 'qi_'
+
+    qi_list <- split(sims_scenarios, sims_scenarios[[scenario_var]])
+    qi_list <- lapply(seq_along(qi_list), function(x){
+        lower_bound <- quantile(qi_list[[x]][, 'qi_'], prob = lower)
+        upper_bound <- quantile(qi_list[[x]][, 'qi_'], prob = upper)
+        subset(qi_list[[x]], qi_ >= lower_bound & qi_ <= upper_bound)
+    })
+
+    out <- data.frame(bind_rows(qi_list))
+    names(out)[names(out) == 'qi_'] <- qi_var
+
+    return(out)
 }

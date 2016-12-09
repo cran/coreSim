@@ -5,16 +5,18 @@
 \title{Find quantities of interest from generalized linear models}
 \usage{
 qi_builder(obj, newdata, FUN, ci = 0.95, nsim = 1000, slim = FALSE,
-  b_sims, large_computation = FALSE, original_order = FALSE, ...)
+  large_computation = FALSE, original_order = FALSE, b_sims, mu, Sigma,
+  verbose = TRUE, ...)
 }
 \arguments{
 \item{obj}{a fitted model object from which to base coefficient simulations
 on.}
 
 \item{newdata}{an optional data frame of fitted values with column names
-corresponding to variable names in \code{b_sims}. Note that variabless not
-included in \code{newdata} will be fitted at 0. If \code{missing}
-then observations used to fit the model in \code{obj} will be used.}
+corresponding to coefficient names in \code{obj} or \code{mu}/\code{Sigma}.
+Note that variables not included in \code{newdata} will be fitted at 0. If
+\code{missing} then observations used to fit the model in \code{obj} will be
+used.}
 
 \item{FUN}{a function for calculating how to find the quantity of interest
 from a vector of the fitted linear systematic component. It must return
@@ -24,7 +26,8 @@ linear regression model is assumed and the predicted values are returned
 \code{\link{linear_systematic}}).}
 
 \item{ci}{the proportion of the central interval of the simulations to
-return. Must be in (0, 1] or equivalently (0, 100].}
+return. Must be in (0, 1] or equivalently (0, 100]. Note: if \code{ci = 1}
+then the full interval (i.e. 100 percent) is assumed.}
 
 \item{nsim}{number of simulations to draw.}
 
@@ -33,17 +36,27 @@ simulations in the central interval specified by \code{ci} for each fitted
 scenario or (if \code{TRUE}) just the minimum, median, and maxium values.
 See \code{\link{qi_slimmer}} for more details.}
 
-\item{b_sims}{an optional data frame created by \code{\link{b_sim}} of
-simulated coefficients. Only used if \code{obj} is not supplied.}
-
 \item{large_computation}{logical. If \code{newdata} is not supplied,
 whether to allow > 100000 simulated quantities of interest to be found.}
 
 \item{original_order}{logical whether or not to keep the original scenario
-order when \code{slim = TRUE}. Choosing \code{FALSE} can imporove computation time.}
+order when \code{slim = TRUE}. Choosing \code{FALSE} can imporove computation
+time.}
 
-\item{...}{arguments to pass to
-\code{\link{linear_systematic}}.}
+\item{b_sims}{an optional data frame created by \code{\link{b_sim}} of
+simulated coefficients. Only used if \code{obj} is not supplied.}
+
+\item{mu}{an optional vector giving the means of the variables. If \code{obj}
+or \code{b_sims} is supplied then \code{mu} is ignored.}
+
+\item{Sigma}{an optional positive-definite symmetric matrix specifying the
+covariance matrix of the variables. If \code{obj} is supplied then
+\code{Sigma} is ignored. If your model includes an intercept, this should be
+given the name \code{intercept_}.}
+
+\item{verbose}{logical. Whether to include full set of messages or not.}
+
+\item{...}{arguments to passed to \code{\link{linear_systematic}}.}
 }
 \value{
 If \code{slimmer = FALSE} a data frame of fitted values supplied in
@@ -73,6 +86,13 @@ linear_qi_obs <- qi_builder(m1)
 fitted_df_1 <- expand.grid(education = 6:16, typewc = 1)
 
 linear_qi <- qi_builder(m1, newdata = fitted_df_1)
+
+# Manually supply coefficient means and covariance matrix
+coefs <- coef(m1)
+vcov_matrix <- vcov(m1)
+
+linear_qi_custom_mu_Sigma <- qi_builder(mu = coefs, Sigma = vcov_matrix,
+                                 newdata = fitted_df_1)
 
 ## Logistic regression
 # Download data
